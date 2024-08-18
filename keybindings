@@ -231,7 +231,6 @@ fzf-file-widget() {
 }
 if [[ "${FZF_CTRL_T_COMMAND-x}" != "" ]]; then
   zle     -N            fzf-file-widget
-  bindkey -M emacs '^T' fzf-file-widget
   bindkey -M vicmd '^T' fzf-file-widget
   bindkey -M viins '^T' fzf-file-widget
 fi
@@ -257,7 +256,6 @@ fzf-cd-widget() {
 }
 if [[ "${FZF_ALT_C_COMMAND-x}" != "" ]]; then
   zle     -N             fzf-cd-widget
-  bindkey -M emacs '\ec' fzf-cd-widget
   bindkey -M vicmd '\ec' fzf-cd-widget
   bindkey -M viins '\ec' fzf-cd-widget
 fi
@@ -290,6 +288,5 @@ fzf-history-widget() {
   return $ret
 }
 zle     -N            fzf-history-widget
-bindkey -M emacs '^R' fzf-history-widget
 bindkey -M vicmd '^R' fzf-history-widget
 bindkey -M viins '^R' fzf-history-widget
