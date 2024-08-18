@@ -196,8 +196,6 @@ zle -N expand_or_complete
 # - $FZF_ALT_C_COMMAND
 # - $FZF_ALT_C_OPTS
 
-if [[ -o interactive ]]; then
-
 __fzf_defaults() {
   # $1: Prepend to FZF_DEFAULT_OPTS_FILE and FZF_DEFAULT_OPTS
   # $2: Append to FZF_DEFAULT_OPTS_FILE and FZF_DEFAULT_OPTS
@@ -295,4 +293,3 @@ zle     -N            fzf-history-widget
 bindkey -M emacs '^R' fzf-history-widget
 bindkey -M vicmd '^R' fzf-history-widget
 bindkey -M viins '^R' fzf-history-widget
-fi

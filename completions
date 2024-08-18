@@ -108,10 +108,6 @@ zstyle ':completion:*:*:sudo:argument-1:*' group-order 'Executables' 'Directorie
 # - $FZF_COMPLETION_PATH_OPTS (default: empty)
 # - $FZF_COMPLETION_DIR_OPTS  (default: empty)
 
-# The 'emulate' command should not be placed inside the interactive if check;
-# placing it there fails to disable alias expansion. See #3731.
-if [[ -o interactive ]]; then
-
 # To use custom commands instead of find, override _fzf_compgen_{path,dir}
 #
 #   _fzf_compgen_path() {
@@ -401,4 +397,3 @@ fzf-completion() {
 
 zle     -N   fzf-completion
 bindkey '^I' fzf-completion
-fi
