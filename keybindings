@@ -236,25 +236,85 @@ __fzf_comprun() {
   fi
 }
 
-# Extract the name of the command. e.g. foo=1 bar baz**<tab>
-__fzf_extract_command() {
-  local token tokens
-  tokens=(${(z)1})
-  for token in $tokens; do
-    token=${(Q)token}
-    if [[ "$token" =~ [[:alnum:]] && ! "$token" =~ "=" ]]; then
-      echo "$token"
-      return
-    fi
-  done
-  echo "${tokens[1]}"
+# Extracts the name of currently "active" command in the context of received command line (${1}).
+# This function is used for during completion, so it's expected that input has incomplete, but valid code.
+#
+# ${1} -> Part of the command line from which this funtion will decide the current "active" command.
+#
+# Examples (with expected results):
+#     echo "$(ll                                        -> ll
+#     echo "$(ll)" "$(ls                                -> ls
+#     nvim "<(ll)"                                      -> nvim
+#     rm /tmp/foo || { echo "$(BAR=foo echo             -> echo
+#     rm /tmp/foo || { echo "$(BAR=foo echo | cat -     -> cat
+#     rm /tmp/foo "$(echo "$(echo /tmp/bar)" & exit     -> exit
+#     rm /tmp/foo "$(echo "$(echo /tmp/bar)" & exit)"   -> rm
+#
+# Note that this function is a poor man's solution without proper zsh parser.
+# There are surely many use-cases that won't work with current implementation.
+#
+function extract_command()
+{
+    # Simplify parsing by removing quotes and separating "$(", "<(", "(", "{", ")", "}", "||", "|", "&&" and "&".
+    local input_stream="$(echo "${1}" | tr -d "\"'" | sed 's/\($(\|<(\|(\|{\|)\|}\|||\||\|&&\|&\)/ \1 /g')"
+
+    # Parse "tokens" from received command line and form a stack of nested commands based on the zsh keywords.
+    # After reaching keywords that requires new command, e.g. like "$(" for subshell start, create new stack entry.
+    # Every stack entry is a single string containing of:
+    # * Special symbol for first character, used to describe scope which introduced the command:
+    #       "(" -> Command added due to subshell from "$(", "<(" or "(" keyword. Will be removed if ")" is reached.
+    #       "{" -> Command added due to subshell from "{" keyword. Will be removed if "}" is reached.
+    #       "&" -> Command added due to "continuation" keywords: "&&", "&", "||" or "|". Removed only by parent scopes.
+    # * Name of the command that is executed in the scope, as remainder of the string entry.
+    #
+    # Note that initial command is treated as "continuation", just for consistency of each stack entry, nothing more.
+    local -a command_stack=("&")
+    for token in $(echo "${input_stream}"); do
+        case "${token}" in
+            \$\(*|\<\(*|\(*) # Subshell start with "$(", "<(" or "(" -> Add new stack entry for it.
+                command_stack+=('(')
+                ;;
+
+            \{*) # Subshell start with "{" -> Add new stack entry for it.
+                command_stack+=('{')
+                ;;
+
+            \&\&|\&|\|\||\|) # "Continuation" started with "&&", "&", "||" or "|" -> Add new stack entry for it.
+                command_stack+=('&')
+                ;;
+
+            *\)) # Subshell ends with ")" -> Remove all nested entries until corresponding subshell scope is poped.
+                while [ "${command_stack[-1][1]}" != '(' ]; do
+                    shift -p command_stack
+                done
+                shift -p command_stack
+                ;;
+
+            *\}) # Subshell ends with "}" -> Remove all nested entries until corresponding subshell scope is poped.
+                while [ "${command_stack[-1][1]}" != '{' ]; do
+                    shift -p command_stack
+                done
+                shift -p command_stack
+                ;;
+
+            *=*) # When inside of any scope, ignore environment variable assignments prior to the command.
+                ;;
+
+            *) # Code inside of some scope -> If command was not yet set for this entry, use the first unknown token.
+                (( "${#command_stack[-1]}" == 1 )) && command_stack[-1]+="${token}"
+                ;;
+        esac
+    done
+
+    # After "parsing", command on top of the stack should be the currently "active" one, at the end of an input.
+    echo "${command_stack[-1]:1}"
 }
 
 __fzf_generic_path_completion() {
   local base lbuf cmd compgen fzf_opts suffix tail dir leftover matches
   base=$1
   lbuf=$2
-  cmd=$(__fzf_extract_command "$lbuf")
+  cmd=$(extract_command "$lbuf")
   compgen=$3
   fzf_opts=$4
   suffix=$5
@@ -346,7 +406,7 @@ _fzf_complete() {
   local fifo lbuf cmd matches post
   fifo="${TMPDIR:-/tmp}/fzf-complete-fifo-$$"
   lbuf=${rest[0]}
-  cmd=$(__fzf_extract_command "$lbuf")
+  cmd=$(extract_command "$lbuf")
   post="${funcstack[1]}_post"
   type $post > /dev/null 2>&1 || post=cat
 
@@ -434,7 +494,7 @@ fzf-completion() {
     return
   fi
 
-  local cmd=$(__fzf_extract_command "$LBUFFER")
+  local cmd=$(extract_command "$LBUFFER")
 
   # Explicitly allow for empty trigger.
   local trigger=${FZF_COMPLETION_TRIGGER-'**'}
