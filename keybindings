@@ -433,7 +433,7 @@ fzf-completion() {
   # http://zsh.sourceforge.net/Doc/Release/Expansion.html#Parameter-Expansion-Flags
   tokens=(${(z)LBUFFER})
   if [ ${#tokens} -lt 1 ]; then
-    zle ${fzf_default_completion:-expand-or-complete}
+    zle expand_or_complete
     return
   fi
 
@@ -472,14 +472,8 @@ fzf-completion() {
     fi
   # Fall back to default completion
   else
-    zle ${fzf_default_completion:-expand-or-complete}
+    zle expand_or_complete
   fi
-}
-
-[ -z "$fzf_default_completion" ] && {
-  binding=$(bindkey '^I')
-  [[ $binding =~ 'undefined-key' ]] || fzf_default_completion=$binding[(s: :w)2]
-  unset binding
 }
 
 zle     -N   fzf-completion
